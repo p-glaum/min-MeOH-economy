@@ -542,9 +542,9 @@ def add_green_fuel_imports(n, options):
                 bus3=spatial.oil.nodes,
                 bus4="co2 atmosphere",
                 carrier="FT import",
-                efficiency=0.3,  # fraction naphtha
-                efficiency2=0.4,  # fraction kerosene
-                efficiency3=0.3,  # fraction diesel
+                efficiency=0.312,  # fraction naphtha
+                efficiency2=0.439,  # fraction kerosene
+                efficiency3=0.249,  # fraction diesel
                 efficiency4=-(costs.at["oil", "CO2 intensity"] - upstream_emissions),
                 p_nom_extendable=True,
             )
@@ -4011,9 +4011,9 @@ def add_biomass(
             bus4="co2 atmosphere",
             carrier="biomass to liquid",
             lifetime=costs.at["BtL", "lifetime"],
-            efficiency=costs.at["BtL", "efficiency"] * 0.3,
-            efficiency2=costs.at["BtL", "efficiency"] * 0.4,
-            efficiency3=costs.at["BtL", "efficiency"] * 0.3,
+            efficiency=costs.at["BtL", "efficiency"] * 0.312,
+            efficiency2=costs.at["BtL", "efficiency"] * 0.439,
+            efficiency3=costs.at["BtL", "efficiency"] * 0.249,
             efficiency4=-costs.at["solid biomass", "CO2 intensity"]
             + costs.at["BtL", "CO2 stored"],
             p_nom_extendable=True,
@@ -5625,12 +5625,15 @@ def add_waste_heat(n):
             options["use_fischer_tropsch_waste_heat"]
             and "Fischer-Tropsch" in link_carriers
         ):
-            n.links.loc[urban_central + " Fischer-Tropsch", "bus3"] = (
+            n.links.loc[urban_central + " Fischer-Tropsch", "bus5"] = (
                 urban_central + " urban central heat"
             )
-            n.links.loc[urban_central + " Fischer-Tropsch", "efficiency3"] = (
-                0.95 - n.links.loc[urban_central + " Fischer-Tropsch", "efficiency"]
-            ) * options["use_fischer_tropsch_waste_heat"]
+            n.links.loc[urban_central + " Fischer-Tropsch", "efficiency5"] = (
+                (
+                    0.2  # steam generation Tab. 3 from https://www.sciencedirect.com/science/article/pii/S0360544215011767?via%3Dihub
+                )
+                * options["use_fischer_tropsch_waste_heat"]
+            )
 
         if options["use_methanation_waste_heat"] and "Sabatier" in link_carriers:
             n.links.loc[urban_central + " Sabatier", "bus3"] = (
