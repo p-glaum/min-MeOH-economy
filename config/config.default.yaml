@@ -1423,6 +1423,7 @@ plotting:
     biomass-to-methanol CC: '#EADBAD'
     enhanced-biomass-to-methanol: '#EAD2F5'
     biogas-to-methanol: '#EAD28A'
+    biogas-to-methanol CC: '#D1B074'
     allam methanol: '#B98F76'
     CCGT methanol: '#B98F76'
     CCGT methanol CC: '#B98F76'

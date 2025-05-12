@@ -126,6 +126,11 @@ def get_run_path(fn, dir, rdir, shared_resources, exclude_from_shared):
             "availability_matrix_",
             "determine_availability_matrix_",
             "solar_thermal",
+            "build_daily_heat_demand",
+            "daily_heat_demand_total_base_s_{clusters}",
+            "build_temperature_profiles",
+            "temp_air_total_base_s_{clusters}",
+            "temp_soil_total_base_s_{clusters}",
         )
         if any(prefix in fn for prefix in shared_files) or is_shared:
             is_shared = True
