@@ -542,9 +542,9 @@ def add_green_fuel_imports(n, options):
                 bus3=spatial.oil.nodes,
                 bus4="co2 atmosphere",
                 carrier="FT import",
-                efficiency=0.312,  # fraction naphtha
-                efficiency2=0.439,  # fraction kerosene
-                efficiency3=0.249,  # fraction diesel
+                efficiency=costs.at["Fischer-Tropsch", "naphtha-fraction"],
+                efficiency2=costs.at["Fischer-Tropsch", "kerosene-fraction"],
+                efficiency3=costs.at["Fischer-Tropsch", "diesel-fraction"],
                 efficiency4=-(costs.at["oil", "CO2 intensity"] - upstream_emissions),
                 p_nom_extendable=True,
             )
@@ -714,15 +714,17 @@ def add_carrier_buses(n, carrier, nodes=None):
                 "Link",
                 nodes + " refining",
                 bus0="oil primary",
-                bus1=spatial.oil.naphtha,  # OMV from https://www.statista.com/statistics/685062/yield-structure-central-european-refineries/, heavy oil is split among kerosene, diesel and naphtha
+                bus1=spatial.oil.naphtha,
                 bus2=spatial.oil.kerosene,
                 bus3=spatial.oil.nodes,
                 bus4="co2 atmosphere",
-                efficiency=0.214,  # 18+18/(18+35+15+6)*14=21.4,
-                efficiency2=0.071,  # 6+6/74*14=7.4,
-                efficiency3=0.595,  # (35+15)+50/74*14=43,
-                efficiency4=0.12
-                * costs.at["oil", "CO2 intensity"],  # own consumption of oil refining
+                efficiency=costs.at["European-oil-refinery", "naphtha-fraction"],
+                efficiency2=costs.at["European-oil-refinery", "kerosene-fraction"],
+                efficiency3=costs.at["European-oil-refinery", "diesel-fraction"],
+                efficiency4=costs.at[
+                    "European-oil-refinery", "own-consumption-fraction"
+                ]
+                * costs.at["oil", "CO2 intensity"],
                 location=location,
                 carrier="oil primary refining",
                 p_nom=1e6,
@@ -3758,16 +3760,13 @@ def add_biomass(
         carbon_efficiency = costs.at["biogas-to-methanol", "carbon-efficiency"]
         carbon_input = (
             efficiency
+            * costs.at["methanolisation", "carbondioxide-input"]
             / carbon_efficiency
-            * costs.at["methanolisation", "carbondioxide-input"]
         )
-        capital_cost_cc = (
-            capital_cost
-            + costs.at["cement capture", "fixed"]
-            * (1 - carbon_efficiency)
-            * efficiency
-            * costs.at["methanolisation", "carbondioxide-input"]
-        )
+
+        carbon_cc = carbon_input * (1 - carbon_efficiency)
+
+        capital_cost_cc = capital_cost + costs.at["cement capture", "fixed"] * carbon_cc
 
         n.add(
             "Link",
@@ -3780,7 +3779,7 @@ def add_biomass(
             efficiency=efficiency,
             efficiency2=-efficiency2,
             efficiency3=-carbon_input,
-            efficiency4=(1 - carbon_efficiency) * carbon_input,
+            efficiency4=carbon_cc * costs.at["biomass CHP capture", "capture_rate"],
             carrier="biogas-to-methanol CC",
             capital_cost=capital_cost_cc,
             p_nom_extendable=True,
@@ -4040,9 +4039,12 @@ def add_biomass(
             bus5=spatial.co2.nodes,
             carrier="biomass to liquid CC",
             lifetime=costs.at["BtL", "lifetime"],
-            efficiency=costs.at["BtL", "efficiency"] * 0.3,
-            efficiency2=costs.at["BtL", "efficiency"] * 0.4,
-            efficiency3=costs.at["BtL", "efficiency"] * 0.3,
+            efficiency=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "naphtha-fraction"],
+            efficiency2=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "kerosene-fraction"],
+            efficiency3=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "diesel-fraction"],
             efficiency4=-costs.at["solid biomass", "CO2 intensity"]
             + costs.at["BtL", "CO2 stored"] * (1 - costs.at["BtL", "capture rate"]),
             efficiency5=costs.at["BtL", "CO2 stored"] * costs.at["BtL", "capture rate"],
@@ -4063,19 +4065,28 @@ def add_biomass(
             + " "
             + pd.Index(spatial.h2.nodes.str.replace(" H2", ""))
         )
+        total_efficiency = costs.at["electrobiofuels", "efficiency-biomass"]
         n.add(
             "Link",
             name,
             suffix=" electrobiofuels",
             bus0=spatial.biomass.nodes,
-            bus1=spatial.oil.nodes,
-            bus2=spatial.h2.nodes,
-            bus3="co2 atmosphere",
+            bus1=spatial.oil.naphtha,
+            bus2=spatial.oil.kerosene,
+            bus3=spatial.oil.nodes,
+            bus4=spatial.h2.nodes,
+            bus5="co2 atmosphere",
             carrier="electrobiofuels",
             lifetime=costs.at["electrobiofuels", "lifetime"],
-            efficiency=costs.at["electrobiofuels", "efficiency-biomass"],
-            efficiency2=-costs.at["electrobiofuels", "efficiency-biomass"]/costs.at["electrobiofuels", "efficiency-hydrogen"],
-            efficiency3=-costs.at["solid biomass", "CO2 intensity"]
+            efficiency=total_efficiency
+            * costs.at["Fischer-Tropsch", "naphtha-fraction"],
+            efficiency2=total_efficiency
+            * costs.at["Fischer-Tropsch", "kerosene-fraction"],
+            efficiency3=total_efficiency
+            * costs.at["Fischer-Tropsch", "diesel-fraction"],
+            efficiency4=-costs.at["electrobiofuels", "efficiency-biomass"]
+            / costs.at["electrobiofuels", "efficiency-hydrogen"],
+            efficiency5=-costs.at["solid biomass", "CO2 intensity"]
             + costs.at["BtL", "CO2 stored"]
             * (1 - costs.at["Fischer-Tropsch", "capture rate"]),
             p_nom_extendable=True,
@@ -5430,9 +5441,9 @@ def add_industry(
         bus3=spatial.oil.nodes,
         bus4=spatial.co2.nodes,
         carrier="Fischer-Tropsch",
-        efficiency=total_efficiency * 0.312,  # fraction naphtha
-        efficiency2=total_efficiency * 0.439,  # fraction kerosene
-        efficiency3=total_efficiency * 0.249,  # fraction diesel
+        efficiency=total_efficiency * costs.at["Fischer-Tropsch", "naphtha-fraction"],
+        efficiency2=total_efficiency * costs.at["Fischer-Tropsch", "kerosene-fraction"],
+        efficiency3=total_efficiency * costs.at["Fischer-Tropsch", "diesel-fraction"],
         efficiency4=-costs.at["oil", "CO2 intensity"] * total_efficiency,
         capital_cost=costs.at["Fischer-Tropsch", "fixed"]
         * total_efficiency,  # EUR/MW_H2/a
