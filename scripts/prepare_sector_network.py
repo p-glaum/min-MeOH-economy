@@ -1112,6 +1112,18 @@ def add_enhanced_biomass_to_methanol(n, costs):
     if options.get("solid_biomass_transport_cost", False):
         marginal_cost += options["solid_biomass_transport_cost"]
 
+    capital_cost = (
+        costs.at["biomass-to-methanol", "fixed"]
+        * costs.at["biomass-to-methanol", "efficiency"]
+        + costs.at["electrolysis", "fixed"]
+        * costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
+        + (
+            costs.at["enhanced-biomass-to-methanol", "efficiency"]
+            - costs.at["biomass-to-methanol", "efficiency"]
+        )
+        * costs.at["methanolisation", "fixed"]
+    )
+
     n.add(
         "Link",
         spatial.biomass.nodes,
@@ -1127,8 +1139,7 @@ def add_enhanced_biomass_to_methanol(n, costs):
         efficiency3=-costs.at["solid biomass", "CO2 intensity"]
         * costs.at["enhanced-biomass-to-methanol", "carbon-efficiency"],
         p_nom_extendable=True,
-        capital_cost=costs.at["biomass-to-methanol", "fixed"]
-        * costs.at["biomass-to-methanol", "efficiency"],
+        capital_cost=capital_cost,
         marginal_cost=marginal_cost,
     )
 
@@ -3363,7 +3374,7 @@ def add_methanol(n, costs):
         if methanol_options["biomass_to_methanol"]:
             add_biomass_to_methanol(n, costs)
 
-        if methanol_options["biomass_to_methanol"]:
+        if methanol_options["biomass_to_methanol_cc"]:
             add_biomass_to_methanol_cc(n, costs)
 
         if methanol_options["enhanced_biomass_to_methanol"]:
@@ -6313,7 +6324,7 @@ if __name__ == "__main__":
             ll="v1.25",
             sector_opts="",
             planning_horizons="2050",
-            run="co2_network/methanol_only",
+            run="co2_network/all_networks",
         )
 
     configure_logging(snakemake)

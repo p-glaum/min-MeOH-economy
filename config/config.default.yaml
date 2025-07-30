@@ -1198,7 +1198,7 @@ plotting:
     biogas to gas CC: '#e51245'
     CCGT: '#a85522'
     CCGT marginal: '#a85522'
-    allam: '#B98F76'
+    allam gas: '#B98F76'
     gas for industry co2 to atmosphere: '#692e0a'
     gas for industry co2 to stored: '#8a3400'
     gas for industry heat: '#853403'
@@ -1277,6 +1277,7 @@ plotting:
     agriculture electricity: '#494778'
     shipping electrified: '#1a0d7a'
     aviation electrified: '#1a0d7a'
+    agriculture machinery electric: '#1a0d5c'
     # battery + EVs
     battery: '#ace37f'
     battery storage: '#ace37f'

@@ -260,6 +260,10 @@ def add_co2_sequestration_limit(
         periods = [np.nan]
         names = pd.Index(["co2_sequestration_limit"])
 
+    if limit == "inf":
+        logger.info("No CO2 sequestration limit set, skipping constraint.")
+        return
+
     n.add(
         "GlobalConstraint",
         names,
