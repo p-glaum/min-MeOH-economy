@@ -732,7 +732,7 @@ def add_carrier_buses(n, carrier, nodes=None):
             return
 
         if carrier == "gas" and not (
-            options["gas_network"] and options["import_fossil_gas"]
+            options["gas_network"] or options["import_fossil_gas"]
         ):
             return
 
@@ -1130,12 +1130,13 @@ def add_enhanced_biomass_to_methanol(n, costs):
         suffix=" enhanced-biomass-to-methanol",
         bus0=spatial.biomass.nodes,
         bus1=spatial.methanol.nodes,
-        bus2=spatial.h2.nodes,
+        bus2=spatial.nodes,
         bus3="co2 atmosphere",
         carrier="enhanced-biomass-to-methanol",
         lifetime=costs.at["biomass-to-methanol", "lifetime"],
         efficiency=costs.at["enhanced-biomass-to-methanol", "efficiency"],
-        efficiency2=-costs.at["enhanced-biomass-to-methanol", "hydrogen-input"],
+        efficiency2=-costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
+        / costs.at["electrolysis", "efficiency"],
         efficiency3=-costs.at["solid biomass", "CO2 intensity"]
         * costs.at["enhanced-biomass-to-methanol", "carbon-efficiency"],
         p_nom_extendable=True,
@@ -1292,7 +1293,7 @@ def add_methanol_to_kerosene(n, costs):
     )
 
 
-def add_methanol_to_gasoline(n, costs):
+def add_methanol_to_gasoline(n, costs, usage):
     tech = "methanol-to-gasoline"
 
     tech_data = "methanol-to-kerosene"  # since techno-economic data almost the same as MtK, just use the same data
@@ -1301,16 +1302,23 @@ def add_methanol_to_gasoline(n, costs):
 
     capital_cost = costs.at[tech_data, "fixed"] / costs.at[tech_data, "methanol-input"]
 
+    if usage == "agriculture machinery oil":
+        usage_nodes = spatial.oil.agriculture_machinery
+    elif usage == "land transport oil":
+        usage_nodes = spatial.oil.land_transport
+    else:
+        raise ValueError(f"Unknown usage type: {usage}")
+
     n.add(
         "Link",
         spatial.h2.locations,
-        suffix=f" {tech}",
+        suffix=f" {tech} {usage}",
         carrier=tech,
         capital_cost=capital_cost,
         marginal_cost=costs.at[tech_data, "VOM"]
         / costs.at[tech_data, "methanol-input"],
         bus0=spatial.methanol.nodes,
-        bus1=spatial.oil.agriculture_machinery,
+        bus1=usage_nodes,
         bus2=spatial.h2.nodes,
         bus3="co2 atmosphere",
         efficiency=1 / costs.at[tech_data, "methanol-input"],
@@ -1975,6 +1983,40 @@ def add_storage_and_grids(
     if options["gas_network"] or options["H2_retrofit"]:
         gas_pipes = pd.read_csv(clustered_gas_network_file, index_col=0)
 
+    # remove fossil generators where there is neither
+    # production, LNG terminal, nor entry-point beyond system scope
+
+    gas_input_nodes = pd.read_csv(gas_input_nodes_file, index_col=0)
+
+    unique = gas_input_nodes.index.unique()
+    gas_i = n.generators.carrier == "gas import"
+    internal_i = ~n.generators.bus.map(n.buses.location).isin(unique)
+
+    remove_i = n.generators[gas_i & internal_i].index
+    n.generators.drop(remove_i, inplace=True)
+
+    input_types = [
+        "production"
+    ]  # "lng", "pipeline"] only consider production in Europe.
+    p_nom = gas_input_nodes[input_types].sum(axis=1).rename(lambda x: x + " gas import")
+    n.generators.loc[gas_i, "p_nom_extendable"] = False
+    n.generators.loc[gas_i, "p_nom"] = p_nom
+
+    # add existing gas storage capacity
+    if options["existing_gas_storage_capacities"]:
+        gas_i = n.stores.carrier == "gas"
+        e_nom = (
+            gas_input_nodes["storage"]
+            .rename(lambda x: x + " gas Store")
+            .reindex(n.stores.index)
+            .fillna(0.0)
+            * 1e3
+        )  # MWh_LHV
+        e_nom.clip(
+            upper=e_nom.quantile(0.98), inplace=True
+        )  # limit extremely large storage
+        n.stores.loc[gas_i, "e_nom"] = e_nom
+
     if options["gas_network"]:
         logger.info(
             "Add natural gas infrastructure, incl. LNG terminals, production, storage and entry-points."
@@ -2014,42 +2056,6 @@ def add_storage_and_grids(
             carrier="gas pipeline",
             lifetime=np.inf,
         )
-
-        # remove fossil generators where there is neither
-        # production, LNG terminal, nor entry-point beyond system scope
-
-        gas_input_nodes = pd.read_csv(gas_input_nodes_file, index_col=0)
-
-        unique = gas_input_nodes.index.unique()
-        gas_i = n.generators.carrier == "gas import"
-        internal_i = ~n.generators.bus.map(n.buses.location).isin(unique)
-
-        remove_i = n.generators[gas_i & internal_i].index
-        n.generators.drop(remove_i, inplace=True)
-
-        input_types = [
-            "production"
-        ]  # "lng", "pipeline"] only consider production in Europe.
-        p_nom = (
-            gas_input_nodes[input_types].sum(axis=1).rename(lambda x: x + " gas import")
-        )
-        n.generators.loc[gas_i, "p_nom_extendable"] = False
-        n.generators.loc[gas_i, "p_nom"] = p_nom
-
-        # add existing gas storage capacity
-        if options["existing_gas_storage_capacities"]:
-            gas_i = n.stores.carrier == "gas"
-            e_nom = (
-                gas_input_nodes["storage"]
-                .rename(lambda x: x + " gas Store")
-                .reindex(n.stores.index)
-                .fillna(0.0)
-                * 1e3
-            )  # MWh_LHV
-            e_nom.clip(
-                upper=e_nom.quantile(0.98), inplace=True
-            )  # limit extremely large storage
-            n.stores.loc[gas_i, "e_nom"] = e_nom
 
         # add candidates for new gas pipelines to achieve full connectivity
 
@@ -2262,6 +2268,7 @@ def add_storage_and_grids(
         )
 
     if options["grey_methanol"]:
+        add_carrier_buses(n, "gas")
         capital_cost = (
             costs.at["SMR", "fixed"]
             + costs.at["methanolisation", "fixed"]
@@ -2288,6 +2295,7 @@ def add_storage_and_grids(
         )
 
     if options["blue_methanol"]:
+        add_carrier_buses(n, "gas")
         co2_emissions = (
             costs.at["gas", "CO2 intensity"]
             - costs.at["grey methanol synthesis", "efficiency"]
@@ -2528,6 +2536,9 @@ def add_ice_cars(n, p_set, ice_share, temperature):
         p_nom_extendable=True,
     )
 
+    if options["methanol"]["methanol_to_gasoline"]:
+        add_methanol_to_gasoline(n, costs, usage="land transport oil")
+
 
 def add_land_transport(
     n,
@@ -2588,6 +2599,12 @@ def add_land_transport(
     if logger:
         logger.info("Add land transport")
 
+    demand_factor = options["land_transport_demand_factor"]
+    if demand_factor != 1:
+        logger.warning(
+            f"Changing land transport demand by {demand_factor * 100 - 100:+.2f}%."
+        )
+
     # read in transport demand in units driven km [100 km]
     transport = pd.read_csv(transport_demand_file, index_col=0, parse_dates=True)
     number_cars = pd.read_csv(transport_data_file, index_col=0)["number cars"]
@@ -2605,7 +2622,7 @@ def add_land_transport(
 
     check_land_transport_shares(shares)
 
-    p_set = transport[nodes]
+    p_set = transport[nodes] * demand_factor
 
     # temperature for correction factor for heating/cooling
     temperature = xr.open_dataarray(temp_air_total_file).to_pandas()
@@ -4450,37 +4467,40 @@ def add_industry(
         p_set=p_set,
     )
 
-    n.add(
-        "Link",
-        spatial.industry.mediumT,
-        suffix=" (biomass)",
-        bus0=spatial.biomass.nodes,
-        bus1=spatial.industry.mediumT,
-        capital_cost=costs.at["solid biomass boiler steam", "fixed"],
-        carrier="solid biomass for industry heat",
-        p_nom_extendable=True,
-    )
+    exclude_biomass = options.get("exclude_biomass_to_medium_heat", False)
 
-    n.add(
-        "Link",
-        spatial.industry.mediumT,
-        suffix=" (biomass) CC",
-        bus0=spatial.biomass.nodes,
-        bus1=spatial.industry.mediumT,
-        bus2="co2 atmosphere",
-        bus3=spatial.co2.nodes,
-        carrier="solid biomass for industry heat CC",
-        p_nom_extendable=True,
-        capital_cost=costs.at["solid biomass boiler steam", "fixed"]
-        + costs.at["cement capture", "fixed"]
-        * costs.at["solid biomass", "CO2 intensity"],
-        efficiency=0.9,  # TODO: make config option
-        efficiency2=-costs.at["solid biomass", "CO2 intensity"]
-        * costs.at["cement capture", "capture_rate"],
-        efficiency3=costs.at["solid biomass", "CO2 intensity"]
-        * costs.at["cement capture", "capture_rate"],
-        lifetime=costs.at["cement capture", "lifetime"],
-    )
+    if not exclude_biomass:
+        n.add(
+            "Link",
+            spatial.industry.mediumT,
+            suffix=" (biomass)",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.industry.mediumT,
+            capital_cost=costs.at["solid biomass boiler steam", "fixed"],
+            carrier="solid biomass for industry heat",
+            p_nom_extendable=True,
+        )
+
+        n.add(
+            "Link",
+            spatial.industry.mediumT,
+            suffix=" (biomass) CC",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.industry.mediumT,
+            bus2="co2 atmosphere",
+            bus3=spatial.co2.nodes,
+            carrier="solid biomass for industry heat CC",
+            p_nom_extendable=True,
+            capital_cost=costs.at["solid biomass boiler steam", "fixed"]
+            + costs.at["cement capture", "fixed"]
+            * costs.at["solid biomass", "CO2 intensity"],
+            efficiency=0.9,  # TODO: make config option
+            efficiency2=-costs.at["solid biomass", "CO2 intensity"]
+            * costs.at["cement capture", "capture_rate"],
+            efficiency3=costs.at["solid biomass", "CO2 intensity"]
+            * costs.at["cement capture", "capture_rate"],
+            lifetime=costs.at["cement capture", "lifetime"],
+        )
 
     if options["electricity_to_medium_heat"]:
         n.add(
@@ -4864,6 +4884,11 @@ def add_industry(
         logger.warning(
             f"Total shipping shares sum up to {total_share:.2%}, corresponding to increased or decreased demand assumptions."
         )
+    demand_factor = options["shipping_demand_factor"]
+    if demand_factor != 1:
+        logger.warning(
+            f"Changing shipping demand by {demand_factor * 100 - 100:+.2f}%."
+        )
 
     domestic_navigation = pop_weighted_energy_totals.loc[
         nodes, ["total domestic navigation"]
@@ -4872,7 +4897,7 @@ def add_industry(
         pd.read_csv(shipping_demand_file, index_col=0).squeeze(axis=1) * nyears
     )
     all_navigation = domestic_navigation + international_navigation
-    p_set = all_navigation * 1e6 / nhours
+    p_set = all_navigation * 1e6 / nhours * demand_factor
 
     if options["endogenous_shipping"]:
         n.add(
@@ -5112,6 +5137,30 @@ def add_industry(
         location=spatial.oil.demand_locations,
         carrier="naphtha",
         unit="MWh_LHV",
+    )
+
+    n.add(
+        "Store",
+        spatial.oil.naphtha,
+        suffix=" Store",
+        bus=spatial.oil.naphtha,
+        e_nom_extendable=True,
+        e_cyclic=True,
+        carrier="naphtha",
+        capital_cost=costs.at["General liquid hydrocarbon storage (product)", "fixed"]
+        / 9.037,  # MWh/m3 (same as oil storage)
+    )
+
+    # to avoid having excess oil, kerosene or naphtha in the system
+    n.add(
+        "Generator",
+        spatial.oil.naphtha,
+        suffix=" Vent",
+        bus=spatial.oil.naphtha,
+        p_nom_extendable=True,
+        p_max_pu=0,
+        p_min_pu=-1,
+        carrier="naphtha",
     )
 
     if options["oil_cracking"]:
@@ -5372,6 +5421,18 @@ def add_industry(
         location=spatial.oil.demand_locations,
         carrier="kerosene",
         unit="MWh_LHV",
+    )
+
+    n.add(
+        "Store",
+        spatial.oil.kerosene,
+        suffix=" Store",
+        bus=spatial.oil.kerosene,
+        e_nom_extendable=True,
+        e_cyclic=True,
+        carrier="kerosene",
+        capital_cost=costs.at["General liquid hydrocarbon storage (product)", "fixed"]
+        / 9.037,  # MWh/m3 (same as oil storage)
     )
 
     n.add(
@@ -5727,16 +5788,21 @@ def add_waste_heat(n):
             )
 
         if options["use_MtG_waste_heat"] and "methanol-to-gasoline" in link_carriers:
-            n.links.loc[urban_central + " methanol-to-gasoline", "bus4"] = (
-                urban_central + " urban central heat"
-            )
-            n.links.loc[urban_central + " methanol-to-gasoline", "efficiency4"] = (
-                (
-                    0.03056  # TODO: add to technology data using same source as for other efficiencies
-                    / costs.at["methanol-to-kerosene", "methanol-input"]
+            pat = r"([A-Z])\w+\d+\s\d+"
+            MtG_i = n.links.filter(like="methanol-to-gasoline", axis=0).index
+            MtG_i = MtG_i.str.replace(pat, "", regex=True).unique()
+
+            for i in MtG_i:
+                n.links.loc[urban_central + i, "bus4"] = (
+                    urban_central + " urban central heat"
                 )
-                * options["methanol-to-gasoline"]
-            )
+                n.links.loc[urban_central + i, "efficiency4"] = (
+                    (
+                        0.03056  # TODO: add to technology data using same source as for other efficiencies
+                        / costs.at["methanol-to-kerosene", "methanol-input"]
+                    )
+                    * options["use_MtG_waste_heat"]
+                )
 
 
 def add_agriculture(n, costs):
@@ -5841,7 +5907,7 @@ def add_agriculture(n, costs):
         )
 
         if options["methanol"]["methanol_to_gasoline"]:
-            add_methanol_to_gasoline(n, costs)
+            add_methanol_to_gasoline(n, costs, usage="agriculture machinery oil")
 
 
 def decentral(n):
@@ -6491,11 +6557,11 @@ if __name__ == "__main__":
             investment_year=investment_year,
         )
 
-    if options["heating"]:
-        add_waste_heat(n)
-
     if options["agriculture"]:  # requires H and I
         add_agriculture(n, costs)
+
+    if options["heating"]:
+        add_waste_heat(n)
 
     if options["dac"]:
         add_dac(n, costs)

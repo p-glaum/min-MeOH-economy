@@ -571,6 +571,7 @@ sector:
     2040: 0.3
     2045: 0.15
     2050: 0
+  land_transport_demand_factor: 1.
   transport_electric_efficiency: 53.19 # 1 MWh_el = 53.19*100 km
   transport_fuel_cell_efficiency: 30.003 # 1 MWh_H2 = 30.003*100 km
   transport_ice_efficiency: 16.0712 # 1 MWh_oil = 16.0712 * 100 km
@@ -609,6 +610,7 @@ sector:
     2050: 0
   shipping_methanol_efficiency: 0.46
   shipping_oil_efficiency: 0.40
+  shipping_demand_factor: 1.
   electrify_domestic_shipping: false
   shipping_electricity_efficiency: 0.85
   aviation_demand_factor: 1.
@@ -720,6 +722,7 @@ sector:
     biogas_to_methanol: false
   ammonia: false
   relocation_ammonia: false
+  exclude_biomass_to_medium_heat: false
   electricity_to_medium_heat: false
   electricity_to_high_heat: false
   min_part_load_high_heat: 1
@@ -1172,9 +1175,9 @@ plotting:
     solar PV: "#f9d002"
     solar-hsat: "#fdb915"
     solar thermal: '#ffbf2b'
-    residential rural solar thermal: '#f1c069'
+    rural solar thermal: '#f1c069'
     services rural solar thermal: '#eabf61'
-    residential urban decentral solar thermal: '#e5bc5a'
+    urban decentral solar thermal: '#e5bc5a'
     services urban decentral solar thermal: '#dfb953'
     urban central solar thermal: '#d7b24c'
     solar rooftop: '#ffea80'
@@ -1185,11 +1188,11 @@ plotting:
     gas boiler: '#db6a25'
     gas boilers: '#db6a25'
     gas boiler marginal: '#db6a25'
-    residential rural gas boiler: '#d4722e'
-    residential urban decentral gas boiler: '#cb7a36'
+    rural gas boiler: '#d4722e'
+    urban decentral gas boiler: '#cb7a36'
+    urban central gas boiler: '#b0904f'
     services rural gas boiler: '#c4813f'
     services urban decentral gas boiler: '#ba8947'
-    urban central gas boiler: '#b0904f'
     gas: '#e05b09'
     fossil gas: '#e05b09'
     gas import: '#e05b09e0'
@@ -1251,10 +1254,9 @@ plotting:
     urban central solid biomass CHP: '#9d9042'
     urban central solid biomass CHP CC: '#6c5d28'
     biomass boiler: '#8A9A5B'
-    residential rural biomass boiler: '#a1a066'
-    residential urban decentral biomass boiler: '#b0b87b'
-    services rural biomass boiler: '#c6cf98'
-    services urban decentral biomass boiler: '#dde5b5'
+    rural biomass boiler: '#a1a066'
+    urban decentral biomass boiler: '#b0b87b'
+    urban central biomass boiler: '#dde5b5'
     biomass to liquid: '#32CD32'
     biomass to liquid CC: '#32CD70'
     unsustainable solid biomass: '#998622'
@@ -1295,23 +1297,19 @@ plotting:
     # hot water storage
     water tanks: '#e69487'
     residential rural water tanks: '#f7b7a3'
-    services rural water tanks: '#f3afa3'
+    rural water tanks: '#f3afa3'
     residential urban decentral water tanks: '#f2b2a3'
-    services urban decentral water tanks: '#f1b4a4'
+    urban decentral water tanks: '#f1b4a4'
     urban central water tanks: '#e9977d'
     hot water storage: '#e69487'
     hot water charging: '#e8998b'
     urban central water tanks charger: '#b57a67'
-    residential rural water tanks charger: '#b4887c'
-    residential urban decentral water tanks charger: '#b39995'
-    services rural water tanks charger: '#b3abb0'
-    services urban decentral water tanks charger: '#b3becc'
+    rural water tanks charger: '#b4887c'
+    urban decentral water tanks charger: '#b39995'
     hot water discharging: '#e99c8e'
     urban central water tanks discharger: '#b9816e'
-    residential rural water tanks discharger: '#ba9685'
-    residential urban decentral water tanks discharger: '#baac9e'
-    services rural water tanks discharger: '#bbc2b8'
-    services urban decentral water tanks discharger: '#bdd8d3'
+    urban decentral water tanks discharger: '#baac9e'
+    rural water tanks discharger: '#bbc2b8'
     # heat demand
     Heat load: '#cc1f1f'
     heat for industry: '#cc1f1f'
@@ -1337,15 +1335,14 @@ plotting:
     heat pump: '#2fb537'
     air heat pump: '#36eb41'
     residential urban decentral air heat pump: '#48f74f'
-    services urban decentral air heat pump: '#5af95d'
-    services rural air heat pump: '#5af95d'
+    urban decentral air heat pump: '#5af95d'
+    rural air heat pump: '#5af95d'
     urban central air heat pump: '#6cfb6b'
     urban central geothermal heat pump: '#4f2144'
     geothermal heat pump: '#4f2144'
     geothermal heat direct utilisation: '#ba91b1'
     ground heat pump: '#2fb537'
-    residential rural ground heat pump: '#4f2144'
-    residential rural air heat pump: '#48f74f'
+    rural ground heat pump: '#4f2144'
     services rural ground heat pump: '#5af95d'
     Ambient: '#98eb9d'
     CHP: '#8a5751'
@@ -1361,8 +1358,8 @@ plotting:
     district heating: '#e8beac'
     resistive heater: '#d8f9b8'
     electricity for industry heat: '#d8f9b8'
-    residential rural resistive heater: '#bef5b5'
-    residential urban decentral resistive heater: '#b2f1a9'
+    rural resistive heater: '#bef5b5'
+    urban decentral resistive heater: '#b2f1a9'
     services rural resistive heater: '#a5ed9d'
     services urban decentral resistive heater: '#98e991'
     urban central resistive heater: '#8cdf85'
