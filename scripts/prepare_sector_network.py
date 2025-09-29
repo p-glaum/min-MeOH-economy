@@ -4038,9 +4038,12 @@ def add_biomass(
             bus4="co2 atmosphere",
             carrier="biomass to liquid",
             lifetime=costs.at["BtL", "lifetime"],
-            efficiency=costs.at["BtL", "efficiency"] * 0.312,
-            efficiency2=costs.at["BtL", "efficiency"] * 0.439,
-            efficiency3=costs.at["BtL", "efficiency"] * 0.249,
+            efficiency=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "naphtha-fraction"],
+            efficiency2=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "kerosene-fraction"],
+            efficiency3=costs.at["BtL", "efficiency"]
+            * costs.at["Fischer-Tropsch", "diesel-fraction"],
             efficiency4=-costs.at["solid biomass", "CO2 intensity"]
             + costs.at["BtL", "CO2 stored"],
             p_nom_extendable=True,
@@ -5168,7 +5171,7 @@ def add_industry(
         n.add(
             "Link",
             spatial.oil.naphtha,
-            bus0=spatial.oil.nodes,
+            bus0=spatial.oil.kerosene,
             bus1=spatial.oil.naphtha,
             bus2="co2 atmosphere",
             carrier="oil cracking",
@@ -6390,7 +6393,7 @@ if __name__ == "__main__":
             ll="v1.25",
             sector_opts="",
             planning_horizons="2050",
-            run="co2_network/all_networks",
+            run="MeOH",
         )
 
     configure_logging(snakemake)
