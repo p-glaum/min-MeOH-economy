@@ -35,7 +35,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Setup env file path (ubuntu)
       if: matrix.os == 'ubuntu'
@@ -126,7 +126,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Use base env file if it was changed
       run: |
