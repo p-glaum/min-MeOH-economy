@@ -35,7 +35,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Setup env file path (ubuntu)
       if: matrix.os == 'ubuntu'
@@ -100,7 +100,7 @@ jobs:
 
     - name: Upload artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: results-${{ matrix.os }}
         path: |
@@ -126,7 +126,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Use base env file if it was changed
       run: |
@@ -193,7 +193,7 @@ jobs:
 
     - name: Upload artifacts
       if: env.pinned == 'false' && always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: results-inhouse-${{ matrix.inhouse }}
         path: |
