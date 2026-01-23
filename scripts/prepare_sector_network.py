@@ -3865,6 +3865,10 @@ def add_biomass(
         )
         average_distance = 200  # km #TODO: validate this assumption
 
+        biomass_transport_cost_factor = options.get(
+            "biomass_transport_cost_factor", 1.0
+        )
+
         n.add(
             "Generator",
             spatial.biomass.nodes,
@@ -3873,7 +3877,7 @@ def add_biomass(
             carrier="solid biomass",
             p_nom=10000,
             marginal_cost=costs.at["solid biomass", "fuel"]
-            + bus_transport_costs * average_distance,
+            + bus_transport_costs * average_distance * biomass_transport_cost_factor,
         )
         n.add(
             "GlobalConstraint",
@@ -3897,7 +3901,8 @@ def add_biomass(
                         zip(spatial.biomass.nodes, spatial.biomass.nodes_unsustainable)
                     )
                 )
-                * average_distance,
+                * average_distance
+                * biomass_transport_cost_factor,
             )
             # Set e_sum_min to 0 to allow for the faux biomass transport
             n.generators.loc[
@@ -6393,7 +6398,7 @@ if __name__ == "__main__":
             ll="v1.25",
             sector_opts="",
             planning_horizons="2050",
-            run="MeOH",
+            run="co2_network/all_networks",
         )
 
     configure_logging(snakemake)

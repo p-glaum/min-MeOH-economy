@@ -781,6 +781,7 @@ sector:
   biomass_spatial: false
   biomass_transport: false
   biomass_transport_generator: true
+  biomass_transport_cost_factor: 1.0
   bio_to_gas: true
   biogas_upgrading_cc: false
   conventional_generation:
