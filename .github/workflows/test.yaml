@@ -35,7 +35,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Setup env file path (ubuntu)
       if: matrix.os == 'ubuntu'
@@ -61,7 +61,7 @@ jobs:
       run: |
         echo "WEEK=$(date +'%Y%U')" >> $GITHUB_ENV # data and cutouts
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: |
           data
@@ -73,7 +73,7 @@ jobs:
         activate-environment: pypsa-eur
 
     - name: Cache Conda env
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CONDA }}/envs
         key: conda-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(format('{0}', env.env_file)) }}
@@ -100,7 +100,7 @@ jobs:
 
     - name: Upload artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: results-${{ matrix.os }}
         path: |
@@ -126,7 +126,7 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Use base env file if it was changed
       run: |
@@ -154,7 +154,7 @@ jobs:
       run: |
         echo "WEEK=$(date +'%Y%U')" >> $GITHUB_ENV # data and cutouts
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       if: env.pinned == 'false'
       with:
         path: |
@@ -169,7 +169,7 @@ jobs:
 
     - name: Cache Conda env
       if: env.pinned == 'false'
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CONDA }}/envs
         key: conda-${{ runner.os }}-${{ runner.arch }}-${{  matrix.inhouse  }}-${{ hashFiles(format('{0}', env.env_file)) }}
@@ -193,7 +193,7 @@ jobs:
 
     - name: Upload artifacts
       if: env.pinned == 'false' && always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: results-inhouse-${{ matrix.inhouse }}
         path: |
