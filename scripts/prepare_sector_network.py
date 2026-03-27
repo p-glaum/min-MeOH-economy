@@ -1112,37 +1112,69 @@ def add_enhanced_biomass_to_methanol(n, costs):
     if options.get("solid_biomass_transport_cost", False):
         marginal_cost += options["solid_biomass_transport_cost"]
 
-    capital_cost = (
-        costs.at["biomass-to-methanol", "fixed"]
-        * costs.at["biomass-to-methanol", "efficiency"]
-        + costs.at["electrolysis", "fixed"]
-        * costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
-        + (
-            costs.at["enhanced-biomass-to-methanol", "efficiency"]
-            - costs.at["biomass-to-methanol", "efficiency"]
+    if options["methanol"].get("e-biomethanol_elec_input", True):
+        capital_cost = (
+            costs.at["biomass-to-methanol", "fixed"]
+            * costs.at["biomass-to-methanol", "efficiency"]
+            + costs.at["electrolysis", "fixed"]
+            / costs.at["electrolysis", "efficiency"]
+            * costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
+            + (
+                costs.at["enhanced-biomass-to-methanol", "efficiency"]
+                - costs.at["biomass-to-methanol", "efficiency"]
+            )
+            * costs.at["methanolisation", "fixed"]
         )
-        * costs.at["methanolisation", "fixed"]
-    )
 
-    n.add(
-        "Link",
-        spatial.biomass.nodes,
-        suffix=" enhanced-biomass-to-methanol",
-        bus0=spatial.biomass.nodes,
-        bus1=spatial.methanol.nodes,
-        bus2=spatial.nodes,
-        bus3="co2 atmosphere",
-        carrier="enhanced-biomass-to-methanol",
-        lifetime=costs.at["biomass-to-methanol", "lifetime"],
-        efficiency=costs.at["enhanced-biomass-to-methanol", "efficiency"],
-        efficiency2=-costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
-        / costs.at["electrolysis", "efficiency"],
-        efficiency3=-costs.at["solid biomass", "CO2 intensity"]
-        * costs.at["enhanced-biomass-to-methanol", "carbon-efficiency"],
-        p_nom_extendable=True,
-        capital_cost=capital_cost,
-        marginal_cost=marginal_cost,
-    )
+        n.add(
+            "Link",
+            spatial.biomass.nodes,
+            suffix=" enhanced-biomass-to-methanol",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.methanol.nodes,
+            bus2=spatial.nodes,
+            bus3="co2 atmosphere",
+            carrier="enhanced-biomass-to-methanol",
+            lifetime=costs.at["biomass-to-methanol", "lifetime"],
+            efficiency=costs.at["enhanced-biomass-to-methanol", "efficiency"],
+            efficiency2=-costs.at["enhanced-biomass-to-methanol", "hydrogen-input"]
+            / costs.at["electrolysis", "efficiency"],
+            efficiency3=-costs.at["solid biomass", "CO2 intensity"]
+            * costs.at["enhanced-biomass-to-methanol", "carbon-efficiency"],
+            p_nom_extendable=True,
+            capital_cost=capital_cost,
+            marginal_cost=marginal_cost,
+        )
+    else:
+        capital_cost = (
+            costs.at["biomass-to-methanol", "fixed"]
+            * costs.at["biomass-to-methanol", "efficiency"]
+            + (
+                costs.at["enhanced-biomass-to-methanol", "efficiency"]
+                - costs.at["biomass-to-methanol", "efficiency"]
+            )
+            * costs.at["methanolisation", "fixed"]
+        )
+
+        # Difference between "biomass-to-bio-e-methanol" and "enhanced-biomass-to-methanol" is confusing here, but did not want to change the existing names yet. The difference to the above is that here H2 is used instead of electricity
+        n.add(
+            "Link",
+            spatial.biomass.nodes,
+            suffix=" enhanced-biomass-to-methanol",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.methanol.nodes,
+            bus2=spatial.h2.nodes,
+            bus3="co2 atmosphere",
+            carrier="enhanced-biomass-to-methanol",
+            lifetime=costs.at["biomass-to-methanol", "lifetime"],
+            efficiency=costs.at["enhanced-biomass-to-methanol", "efficiency"],
+            efficiency2=-costs.at["enhanced-biomass-to-methanol", "hydrogen-input"],
+            efficiency3=-costs.at["solid biomass", "CO2 intensity"]
+            * costs.at["enhanced-biomass-to-methanol", "carbon-efficiency"],
+            p_nom_extendable=True,
+            capital_cost=capital_cost,
+            marginal_cost=marginal_cost,
+        )
 
 
 def add_methanol_to_power(n, costs, types=None):
@@ -3759,60 +3791,91 @@ def add_biomass(
 
     if options["methanol"]["biogas_to_methanol"]:
         efficiency = costs.at["biogas-to-methanol", "methanol-output"]
-        efficiency2 = costs.at["biogas-to-methanol", "electricity-input"]
-        capital_cost = costs.at["biogas", "fixed"]
-        +efficiency * costs.at["methanolisation", "fixed"]
-        +efficiency2 * costs.at[
-            "electrolysis", "fixed"
-        ]  # rough cost estimation from adding up technology costs
+        elec_input = costs.at["biogas-to-methanol", "electricity-input"]
         marginal_cost = 0
         if options.get("biogas_transport_cost", False):
             marginal_cost += options["biogas_transport_cost"]
-        n.add(
-            "Link",
-            spatial.nodes + " biogas to methanol",
-            bus0=spatial.gas.biogas,
-            bus1=spatial.methanol.nodes,
-            bus2=spatial.nodes,
-            bus3="co2 atmosphere",
-            efficiency=efficiency,
-            efficiency2=-efficiency2,
-            efficiency3=-efficiency
-            * costs.at["methanolisation", "carbondioxide-input"],
-            carrier="biogas-to-methanol",
-            capital_cost=capital_cost,
-            p_nom_extendable=True,
-            marginal_cost=marginal_cost,
-        )
-
+        # for cc version
         carbon_efficiency = costs.at["biogas-to-methanol", "carbon-efficiency"]
         carbon_input = (
             efficiency
             * costs.at["methanolisation", "carbondioxide-input"]
             / carbon_efficiency
         )
-
         carbon_cc = carbon_input * (1 - carbon_efficiency)
+        if options["methanol"].get("e-biomethanol_elec_input", True):
+            capital_cost = (
+                costs.at["biogas", "fixed"]
+                + efficiency * costs.at["methanolisation", "fixed"]
+                + elec_input * costs.at["electrolysis", "fixed"]
+            )  # rough cost estimation from adding up technology costs
+            n.add(
+                "Link",
+                spatial.nodes + " biogas to methanol",
+                bus0=spatial.gas.biogas,
+                bus1=spatial.methanol.nodes,
+                bus2=spatial.nodes,
+                bus3="co2 atmosphere",
+                efficiency=efficiency,
+                efficiency2=-elec_input,
+                efficiency3=-efficiency
+                * costs.at["methanolisation", "carbondioxide-input"],
+                carrier="biogas-to-methanol",
+                capital_cost=capital_cost,
+                p_nom_extendable=True,
+                marginal_cost=marginal_cost,
+            )
 
-        capital_cost_cc = capital_cost + costs.at["cement capture", "fixed"] * carbon_cc
+            capital_cost_cc = (
+                capital_cost + costs.at["cement capture", "fixed"] * carbon_cc
+            )
+            n.add(
+                "Link",
+                spatial.nodes + " biogas to methanol CC",
+                bus0=spatial.gas.biogas,
+                bus1=spatial.methanol.nodes,
+                bus2=spatial.nodes,
+                bus3="co2 atmosphere",
+                bus4=spatial.co2.nodes,
+                efficiency=efficiency,
+                efficiency2=-elec_input,
+                efficiency3=-carbon_input,
+                efficiency4=carbon_cc * costs.at["biomass CHP capture", "capture_rate"],
+                carrier="biogas-to-methanol CC",
+                capital_cost=capital_cost_cc,
+                p_nom_extendable=True,
+                marginal_cost=marginal_cost,
+            )
+        else:
+            # Naming "biogas-to-e-methanol CC" is confusing here, but did not want to change the existing names yet. The difference to the above is that here H2 is used instead of electricity
+            capital_cost = (
+                costs.at["biogas", "fixed"]
+                + efficiency * costs.at["methanolisation", "fixed"]
+            )
 
-        n.add(
-            "Link",
-            spatial.nodes + " biogas to methanol CC",
-            bus0=spatial.gas.biogas,
-            bus1=spatial.methanol.nodes,
-            bus2=spatial.nodes,
-            bus3="co2 atmosphere",
-            bus4=spatial.co2.nodes,
-            efficiency=efficiency,
-            efficiency2=-efficiency2,
-            efficiency3=-carbon_input,
-            efficiency4=carbon_cc * costs.at["biomass CHP capture", "capture_rate"],
-            carrier="biogas-to-methanol CC",
-            capital_cost=capital_cost_cc,
-            p_nom_extendable=True,
-            marginal_cost=marginal_cost,
-        )
+            H2_input = (
+                elec_input * costs.at["electrolysis", "efficiency"]
+            )  # rough cost estimation from adding up technology costs
+            capital_cost_cc = (
+                capital_cost + costs.at["cement capture", "fixed"] * carbon_cc
+            )
+            n.add(
+                "Link",
+                spatial.nodes + " biogas to methanol CC",
+                bus0=spatial.gas.biogas,
+                bus1=spatial.methanol.nodes,
+                bus2=spatial.h2.nodes,
+                bus3="co2 atmosphere",
+                bus4=spatial.co2.nodes,
+                efficiency=efficiency,
+                efficiency2=-H2_input,
+                efficiency3=-carbon_input,
+                efficiency4=carbon_cc * costs.at["biomass CHP capture", "capture_rate"],
+                carrier="biogas-to-methanol CC",
+                capital_cost=capital_cost_cc,
+                p_nom_extendable=True,
+                marginal_cost=marginal_cost,
+            )
 
     if options["biomass_transport"]:
         # add biomass transport
